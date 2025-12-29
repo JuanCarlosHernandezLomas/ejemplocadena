@@ -1,168 +1,164 @@
-package org.example;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class BuscarCadenaEnCarpeta {
+public class LogIPPorPuerto {
 
-    // Ajusta extensiones si quieres filtrar
-    private static final String[] EXTENSIONES_TEXTO = {
-            ".txt", ".log", ".csv", ".json", ".xml", ".yml", ".yaml",
-            ".java", ".properties", ".md", ".sql"
-    };
+    // Regex para IP:PUERTO
+    private static final Pattern IP_PUERTO_PATTERN =
+            Pattern.compile("\\b(\\d{1,3}(?:\\.\\d{1,3}){3}):(\\d{1,5})\\b");
 
     public static void main(String[] args) {
 
-        Path carpetaRaiz = Paths.get("C:\\Users\\lomas\\Desktop\\demo_busqueda_unica_prueba");
-        String cadenaABuscar = "prueba";
-
-        // Charset recomendado. Si tus archivos están en UTF-8, déjalo así.
-        Charset charset = StandardCharsets.UTF_8;
+        // 🔧 CAMBIA ESTA RUTA
+        Path logFile = Paths.get("C:\\ruta\\a\\tu\\archivo.log");
 
         try {
-            List<Resultado> resultados = buscarEnCarpeta(carpetaRaiz, cadenaABuscar, charset, true);
+            Map<Integer, Set<String>> resultado = obtenerIPsPorPuerto(logFile);
 
-            if (resultados.isEmpty()) {
-                System.out.println("No se encontró la cadena: \"" + cadenaABuscar + "\"");
-            } else {
-                System.out.println("Encontrado en " + resultados.size() + " archivo(s):");
-                for (Resultado r : resultados) {
-                    System.out.println("--------------------------------------------------");
-                    System.out.println("Archivo: " + r.rutaCompleta);
-                    System.out.println("Carpeta: " + r.carpeta);
-                    System.out.println("Nombre : " + r.nombreArchivo);
-                    System.out.println("Ocurrencias: " + r.ocurrencias);
-                    if (!r.lineasCoinciden.isEmpty()) {
-                        System.out.println("Líneas:");
-                        for (String linea : r.lineasCoinciden) {
-                            System.out.println("  " + linea);
-                        }
-                    }
-                }
-            }
+            imprimirResultado(resultado);
 
         } catch (IOException e) {
-            System.err.println("Error leyendo archivos: " + e.getMessage());
+            System.err.println("Error leyendo el archivo: " + e.getMessage());
         }
     }
 
-    /**
-     * @param incluirDetalleLineas si true, guarda lineas donde apareció (limitadas)
-     */
-    public static List<Resultado> buscarEnCarpeta(Path carpetaRaiz,
-                                                  String cadena,
-                                                  Charset charset,
-                                                  boolean incluirDetalleLineas) throws IOException {
+    public static Map<Integer, Set<String>> obtenerIPsPorPuerto(Path archivo) throws IOException {
 
-        if (carpetaRaiz == null || !Files.exists(carpetaRaiz) || !Files.isDirectory(carpetaRaiz)) {
-            throw new IllegalArgumentException("La ruta no existe o no es carpeta: " + carpetaRaiz);
-        }
-        if (cadena == null || cadena.isBlank()) {
-            throw new IllegalArgumentException("La cadena a buscar no puede ir vacía.");
-        }
+        Map<Integer, Set<String>> puertoIpsMap = new HashMap<>();
 
-        final List<Resultado> encontrados = new ArrayList<>();
-        final String needle = cadena; // si quieres case-insensitive, cambia aquí
+        try (BufferedReader reader = Files.newBufferedReader(archivo, StandardCharsets.UTF_8)) {
+            String linea;
 
-        // Recorre todo recursivo
-        try (var stream = Files.walk(carpetaRaiz)) {
-            stream
-                    .filter(Files::isRegularFile)
-                    .filter(path -> esArchivoTexto(path))
-                    .forEach(path -> {
-                        try {
-                            Resultado r = buscarEnArchivo(path, needle, charset, incluirDetalleLineas);
-                            if (r != null) {
-                                encontrados.add(r);
-                            }
-                        } catch (Exception ex) {
-                            // Si hay archivos binarios o con encoding raro, no revienta todo.
-                            System.err.println("No se pudo leer: " + path + " -> " + ex.getMessage());
-                        }
-                    });
-        }
+            while ((linea = reader.readLine()) != null) {
 
-        return encontrados;
-    }
+                Matcher matcher = IP_PUERTO_PATTERN.matcher(linea);
 
-    private static Resultado buscarEnArchivo(Path archivo,
-                                             String needle,
-                                             Charset charset,
-                                             boolean incluirDetalleLineas) throws IOException {
+                while (matcher.find()) {
+                    String ip = matcher.group(1);
+                    int puerto = Integer.parseInt(matcher.group(2));
 
-        int ocurrencias = 0;
-        int numeroLinea = 0;
-
-        // Para no imprimir líneas infinitas, guardamos máximo 20
-        List<String> lineas = new ArrayList<>();
-
-        try (BufferedReader br = Files.newBufferedReader(archivo, charset)) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                numeroLinea++;
-
-                // Búsqueda "case-sensitive"
-                int count = contarOcurrencias(line, needle);
-                if (count > 0) {
-                    ocurrencias += count;
-
-                    if (incluirDetalleLineas && lineas.size() < 20) {
-                        lineas.add("L" + numeroLinea + ": " + line.trim());
-                    }
+                    puertoIpsMap
+                            .computeIfAbsent(puerto, p -> new HashSet<>())
+                            .add(ip);
                 }
             }
         }
 
-        if (ocurrencias > 0) {
-            Path carpeta = archivo.getParent();
-            return new Resultado(
-                    archivo.toAbsolutePath().toString(),
-                    carpeta != null ? carpeta.toAbsolutePath().toString() : "",
-                    archivo.getFileName().toString(),
-                    ocurrencias,
-                    lineas
-            );
-        }
-        return null;
+        return puertoIpsMap;
     }
 
-    private static int contarOcurrencias(String texto, String needle) {
-        int count = 0;
-        int idx = 0;
-        while ((idx = texto.indexOf(needle, idx)) != -1) {
-            count++;
-            idx += needle.length();
+    private static void imprimirResultado(Map<Integer, Set<String>> data) {
+
+        if (data.isEmpty()) {
+            System.out.println("No se encontraron IPs con puerto.");
+            return;
         }
-        return count;
+
+        System.out.println("IPs agrupadas por puerto:");
+        System.out.println("================================");
+
+        data.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> {
+                    System.out.println("Puerto " + entry.getKey() + ":");
+                    for (String ip : entry.getValue()) {
+                        System.out.println("  - " + ip);
+                    }
+                });
+    }
+}
+
+
+-------------------------------------------------------------------
+
+import org.knowm.xchart.BitmapEncoder;
+import org.knowm.xchart.CategoryChart;
+import org.knowm.xchart.CategoryChartBuilder;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class GraficaIPsPorPuerto {
+
+    private static final Pattern IP_PUERTO_PATTERN =
+            Pattern.compile("\\b(\\d{1,3}(?:\\.\\d{1,3}){3}):(\\d{1,5})\\b");
+
+    public static void main(String[] args) throws Exception {
+
+        Path logFile = Paths.get("C:\\ruta\\a\\tu\\archivo.log"); // <-- cambia esto
+
+        Map<Integer, Set<String>> ipsPorPuerto = obtenerIPsPorPuerto(logFile);
+
+        // Ejemplo: graficar "puerto vs #IPs únicas"
+        Path salidaPng = Paths.get("C:\\ruta\\a\\tu\\salida\\ips_por_puerto.png");
+        graficarBarrasPuertos(ipsPorPuerto, salidaPng);
+
+        System.out.println("Gráfica generada en: " + salidaPng.toAbsolutePath());
     }
 
-    private static boolean esArchivoTexto(Path path) {
-        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        for (String ext : EXTENSIONES_TEXTO) {
-            if (name.endsWith(ext)) return true;
+    public static Map<Integer, Set<String>> obtenerIPsPorPuerto(Path archivo) throws IOException {
+        Map<Integer, Set<String>> puertoIpsMap = new HashMap<>();
+
+        try (BufferedReader reader = Files.newBufferedReader(archivo, StandardCharsets.UTF_8)) {
+            String linea;
+            while ((linea = reader.readLine()) != null) {
+                Matcher matcher = IP_PUERTO_PATTERN.matcher(linea);
+                while (matcher.find()) {
+                    String ip = matcher.group(1);
+                    int puerto = Integer.parseInt(matcher.group(2));
+
+                    puertoIpsMap
+                            .computeIfAbsent(puerto, p -> new HashSet<>())
+                            .add(ip);
+                }
+            }
         }
-        return false;
+        return puertoIpsMap;
     }
 
-    // DTO simple de resultados
-    public static class Resultado {
-        public final String rutaCompleta;
-        public final String carpeta;
-        public final String nombreArchivo;
-        public final int ocurrencias;
-        public final List<String> lineasCoinciden;
+    public static void graficarBarrasPuertos(Map<Integer, Set<String>> ipsPorPuerto, Path salidaPng)
+            throws IOException {
 
-        public Resultado(String rutaCompleta, String carpeta, String nombreArchivo, int ocurrencias, List<String> lineasCoinciden) {
-            this.rutaCompleta = rutaCompleta;
-            this.carpeta = carpeta;
-            this.nombreArchivo = nombreArchivo;
-            this.ocurrencias = ocurrencias;
-            this.lineasCoinciden = lineasCoinciden;
+        if (ipsPorPuerto.isEmpty()) {
+            System.out.println("No hay datos para graficar.");
+            return;
         }
+
+        // Ordenar por puerto
+        List<Integer> puertos = new ArrayList<>(ipsPorPuerto.keySet());
+        Collections.sort(puertos);
+
+        List<String> xLabels = new ArrayList<>();
+        List<Integer> yValores = new ArrayList<>();
+
+        for (Integer p : puertos) {
+            xLabels.add(String.valueOf(p));
+            yValores.add(ipsPorPuerto.get(p).size()); // # de IPs únicas por puerto
+        }
+
+        CategoryChart chart = new CategoryChartBuilder()
+                .title("IPs únicas por puerto")
+                .xAxisTitle("Puerto")
+                .yAxisTitle("Cantidad de IPs únicas")
+                .width(1200)
+                .height(700)
+                .build();
+
+        chart.addSeries("IPs únicas", xLabels, yValores);
+
+        Files.createDirectories(salidaPng.getParent());
+        BitmapEncoder.saveBitmap(chart, salidaPng.toString(), BitmapEncoder.BitmapFormat.PNG);
     }
 }

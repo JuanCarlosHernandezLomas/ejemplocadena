@@ -1,0 +1,79 @@
+https://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/messaging/mqdev/redist/
+Click en la barra de direcciones del explorador.
+
+
+Escribe:
+
+
+cmd
+
+
+
+Presiona Enter.
+
+
+Se abrirá la consola en esa ruta.
+
+Paso 2: listar los certificados del keystore
+Ejecuta:
+gsk8capicmd_64 -cert -list -db archivo.kdb -pw TU_PASSWORD
+
+O si tu archivo es .jks:
+gsk8capicmd_64 -cert -list -db archivo.jks -pw TU_PASSWORD
+
+Esto mostrará los alias.
+
+Paso 3: exportar el personal certificate (con private key) a PKCS12
+Supongamos que el alias es:
+mycert
+
+Ejecuta:
+gsk8capicmd_64 -cert -export \
+  -db archivo.kdb \
+  -pw TU_PASSWORD \
+  -label "mycert" \
+  -target archivo.p12 \
+  -target_pw NUEVA_PASSWORD \
+  -type pkcs12
+
+Esto crea:
+archivo.p12
+
+Que ya incluye:
+
+
+private key
+
+
+certificado
+
+
+cadena
+
+
+
+Paso 4: extraer la private key
+Con OpenSSL:
+openssl pkcs12 -in archivo.p12 -nocerts -nodes -out private-key.pem
+
+
+Si tu archivo es .jks y no .kdb
+Primero intenta:
+gsk8capicmd_64 -cert -list -db archivo.jks -pw TU_PASSWORD
+
+Si lista certificados, entonces es un keystore IBM válido.
+
+Si quieres, te doy el comando exacto
+Solo dime:
+
+
+El nombre exacto del archivo (ej: client.jks o key.kdb)
+
+
+Qué devuelve este comando:
+
+
+gsk8capicmd_64 -cert -list -db archivo.jks -pw TU_PASSWORD
+
+(con el error si aparece)
+Y te doy el comando listo para copiar y pegar para extraer la private key.

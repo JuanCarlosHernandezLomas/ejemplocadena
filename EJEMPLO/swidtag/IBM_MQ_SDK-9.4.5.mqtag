@@ -1,0 +1,25 @@
+<!--
+ <copyright 
+ notice="lm-source-program" 
+ pids="5724-H72," 
+ years="2015,2016" 
+ crc="3364635529" > 
+ Licensed Materials - Property of IBM  
+  
+ 5724-H72, 
+  
+ (C) Copyright IBM Corp. 2015,2016
+  
+ US Government Users Restricted Rights - Use, duplication or  
+ disclosure restricted by GSA ADP Schedule Contract with  
+ IBM Corp.  
+ </copyright> 
+-->
+
+<!--
+ SCCSID = "@(#) MQMBID sn=p945-L260120 su=cf26678a1a640aba7dc4f9c41871946713dc9a38 pn=install/swtag/IBM_MQ_SDK.mqtag.tag
+-->
+
+<Component>
+<ComponentName>IBM MQ SDK</ComponentName>
+</Component>

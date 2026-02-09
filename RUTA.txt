@@ -77,3 +77,5 @@ gsk8capicmd_64 -cert -list -db archivo.jks -pw TU_PASSWORD
 
 (con el error si aparece)
 Y te doy el comando listo para copiar y pegar para extraer la private key.
+
+$env:Path = "$PWD\..\lib64;$env:Path"
